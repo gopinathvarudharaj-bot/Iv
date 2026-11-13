@@ -19,6 +19,8 @@ PhishShield AI is a full-stack phishing and scam inspection dashboard built with
 
 See `.env.example`:
 
+Copy `.env.example` to `.env` for local development and supply your own values there. Example values are intentionally empty so they cannot match configured secrets during Netlify scanning. Local `.env` files are ignored by Git. On Netlify, configure sensitive values as server runtime environment variables, never with a `VITE_` prefix, and keep secrets scanning enabled.
+
 - `GEMINI_API_KEY`: Optional server-side Gemini API key (configured via runtime secrets; never exposed to client bundles).
 - `GOOGLE_SAFE_BROWSING_API_KEY`: Optional server-side Google Safe Browsing API v4 key (configured via runtime secrets; never exposed to client code). When missing, the UI clearly shows reputation checking is not configured and returns `Unknown / Unverified`.
 - `GOOGLE_SAFE_BROWSING_TIMEOUT_MS`: Optional Safe Browsing request timeout in ms (default `8000`).
