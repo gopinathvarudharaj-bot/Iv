@@ -13,8 +13,24 @@ export type RiskLevel =
   | 'Known Malicious'
   | 'High Risk'
   | 'Suspicious'
+  | 'UPI Payment QR – Verify Recipient'
   | 'No Known Threat Found'
   | 'Unknown/Unverified';
+
+export interface UpiPaymentDetails {
+  scheme: string;
+  payeeName: string;
+  payeeAddressMasked: string;
+  amountDisplay: string;
+  rawAmount?: string;
+  currency: string;
+  transactionNote?: string;
+  merchantCode?: string;
+  transactionRefMasked?: string;
+  embeddedUrl?: string;
+  isValidUpiFormat: boolean;
+  warnings: string[];
+}
 
 export type SensitivityLevel = 'standard' | 'strict' | 'paranoid';
 
@@ -199,6 +215,7 @@ export interface AnalysisResponse {
   parsedHost?: string;
   normalizedHost?: string;
   registrableDomain?: string;
+  upiDetails?: UpiPaymentDetails;
   aiExplanation: string;
   aiStatus?: 'success' | 'unavailable' | 'skipped';
   aiError?: string;

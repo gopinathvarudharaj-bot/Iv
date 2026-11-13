@@ -24,11 +24,33 @@ export function redactSecretsInText(input: string): string {
       .replace(/(;P:)([^;\n]+)(;|$)/gi, '$1[REDACTED]$3')
       // Redact password in URL authority: https://user:secret@host
       .replace(/([a-z][a-z0-9+.-]*:\/\/[^/\s:@]+):([^@\s/]+)@/gi, '$1:[REDACTED]@')
-      // Redact sensitive query parameters (tokens, passwords, OTPs, keys)
+      // Redact sensitive query parameters (tokens, passwords, OTPs, keys, UPI txn refs)
       .replace(
-        /([?&](?:password|passwd|pwd|pass|token|access_token|id_token|refresh_token|auth|secret|api_key|apikey|key|otp|pin|cvv|ssn)=)([^&#\s]+)/gi,
+        /([?&](?:password|passwd|pwd|pass|token|access_token|id_token|refresh_token|auth|secret|api_key|apikey|key|otp|pin|cvv|ssn|tr|tid|sign)=)([^&#\s]+)/gi,
         '$1[REDACTED]'
       )
+      // Mask UPI VPA payee addresses (pa=local@psp) so raw phone/account VPAs are never stored unmasked
+      .replace(/([?&]pa=)([^&#\s]+)/gi, (_match, prefix: string, rawPa: string) => {
+        let decoded = rawPa;
+        try {
+          decoded = decodeURIComponent(rawPa);
+        } catch {
+          // keep rawPa
+        }
+        const atIdx = decoded.indexOf('@');
+        if (atIdx <= 0 || atIdx === decoded.length - 1) {
+          return `${prefix}${decoded.slice(0, 2)}***`;
+        }
+        const local = decoded.slice(0, atIdx);
+        const psp = decoded.slice(atIdx + 1);
+        if (/^\d{7,}$/.test(local)) {
+          const stars = '*'.repeat(Math.max(4, local.length - 4));
+          return `${prefix}${local.slice(0, 2)}${stars}${local.slice(-2)}@${psp}`;
+        }
+        if (local.length <= 2) return `${prefix}${local[0]}*@${psp}`;
+        if (local.length <= 4) return `${prefix}${local[0]}***@${psp}`;
+        return `${prefix}${local.slice(0, 2)}***${local.slice(-2)}@${psp}`;
+      })
   );
 }
 
@@ -83,6 +105,12 @@ export function normalizeRiskLevel(raw: unknown): RiskLevel {
   const val = String(raw || '').trim();
   if (val === 'Critical Risk') return 'High Risk';
   if (val === 'Unknown / Unverified') return 'Unknown/Unverified';
+  if (
+    val === 'UPI Payment QR – Verify Recipient' ||
+    val === 'UPI Payment QR - Verify Recipient'
+  ) {
+    return 'UPI Payment QR – Verify Recipient';
+  }
   if (
     val === 'Known Malicious' ||
     val === 'High Risk' ||
