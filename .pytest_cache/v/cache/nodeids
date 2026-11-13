@@ -1,0 +1,5 @@
+[
+  "ml_service/tests/test_ml_service.py::test_canonicalization_and_deduplication_prevent_train_test_leakage",
+  "ml_service/tests/test_ml_service.py::test_feature_extraction_covers_required_url_signals",
+  "ml_service/tests/test_ml_service.py::test_training_and_fastapi_predict_end_to_end"
+]

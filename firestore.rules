@@ -1,0 +1,326 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function userProfileExists(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && (!('email' in data) || (data.email is string && data.email.size() >= 3 && data.email.size() <= 254))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPreferences(data, userId) {
+      return data.keys().hasAll([
+          'userId',
+          'sensitivity',
+          'autoExplainWithAi',
+          'defaultReportFormat',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'sensitivity',
+          'autoExplainWithAi',
+          'defaultReportFormat',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.userId == userId
+        && data.sensitivity in ['standard', 'strict', 'paranoid']
+        && data.autoExplainWithAi is bool
+        && data.defaultReportFormat in ['pdf', 'json', 'markdown']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidScanRecord(data, scanId) {
+      return data.keys().hasAll([
+          'id',
+          'userId',
+          'scanType',
+          'targetPreview',
+          'rawInput',
+          'riskLevel',
+          'riskScore',
+          'verdictSummary',
+          'aiExplanation',
+          'indicators',
+          'recommendations',
+          'isDemoMode',
+          'archived',
+          'analystNote',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'userId',
+          'scanType',
+          'targetPreview',
+          'rawInput',
+          'riskLevel',
+          'riskScore',
+          'heuristicScore',
+          'submittedUrl',
+          'reputationStatus',
+          'reputationResult',
+          'reputationProvider',
+          'reputationCheckedAt',
+          'threatCategories',
+          'reputationSummary',
+          'scoreBreakdownSummary',
+          'mlProbability',
+          'mlSummary',
+          'verdictSummary',
+          'aiExplanation',
+          'indicators',
+          'recommendations',
+          'isDemoMode',
+          'archived',
+          'analystNote',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == scanId
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.scanType in ['url', 'email', 'sms', 'qr']
+        && data.targetPreview is string && data.targetPreview.size() >= 1 && data.targetPreview.size() <= 500
+        && !data.targetPreview.matches('(?s).*data:image/.*')
+        && data.rawInput is string && data.rawInput.size() >= 1 && data.rawInput.size() <= 8000
+        && !data.rawInput.matches('(?s).*data:image/.*')
+        && data.riskLevel in [
+          'Known Malicious',
+          'High Risk',
+          'Suspicious',
+          'No Known Threat Found',
+          'Unknown/Unverified',
+          'Critical Risk',
+          'Unknown / Unverified'
+        ]
+        && data.riskScore is int && data.riskScore >= 0 && data.riskScore <= 100
+        && (!('heuristicScore' in data) || (data.heuristicScore is int && data.heuristicScore >= 0 && data.heuristicScore <= 100))
+        && (!('submittedUrl' in data) || (data.submittedUrl is string && data.submittedUrl.size() <= 2000))
+        && (!('reputationStatus' in data) || (data.reputationStatus is string && data.reputationStatus.size() <= 64))
+        && (!('reputationResult' in data) || (data.reputationResult in ['Known Malicious', 'No Known Threat Found', 'Unknown / Unverified']))
+        && (!('reputationProvider' in data) || (data.reputationProvider is string && data.reputationProvider.size() <= 120))
+        && (!('reputationCheckedAt' in data) || (data.reputationCheckedAt is string && data.reputationCheckedAt.size() <= 64))
+        && (!('threatCategories' in data) || (
+          data.threatCategories is list
+          && data.threatCategories.size() <= 10
+          && (data.threatCategories.size() == 0 || (data.threatCategories[0] is string && data.threatCategories[0].size() <= 64))
+        ))
+        && (!('reputationSummary' in data) || (data.reputationSummary is string && data.reputationSummary.size() <= 500))
+        && (!('scoreBreakdownSummary' in data) || (data.scoreBreakdownSummary is string && data.scoreBreakdownSummary.size() <= 4000))
+        && (!('mlProbability' in data) || (data.mlProbability is int && data.mlProbability >= 0 && data.mlProbability <= 100))
+        && (!('mlSummary' in data) || (data.mlSummary is string && data.mlSummary.size() <= 300))
+        && data.verdictSummary is string && data.verdictSummary.size() >= 1 && data.verdictSummary.size() <= 2000
+        && data.aiExplanation is string && data.aiExplanation.size() <= 8000
+        && data.indicators is list && data.indicators.size() <= 20
+        && (data.indicators.size() == 0 || (data.indicators[0] is string && data.indicators[0].size() <= 300))
+        && data.recommendations is list && data.recommendations.size() <= 15
+        && (data.recommendations.size() == 0 || (data.recommendations[0] is string && data.recommendations[0].size() <= 300))
+        && data.isDemoMode is bool
+        && data.archived is bool
+        && data.analystNote is string && data.analystNote.size() <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSecurityReport(data, reportId) {
+      return data.keys().hasAll([
+          'id',
+          'userId',
+          'title',
+          'format',
+          'scanCount',
+          'highRiskCount',
+          'summary',
+          'content',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id',
+          'userId',
+          'title',
+          'format',
+          'scanCount',
+          'highRiskCount',
+          'summary',
+          'content',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.id == reportId
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.format in ['pdf', 'json', 'markdown']
+        && data.scanCount is int && data.scanCount >= 0 && data.scanCount <= 10000
+        && data.highRiskCount is int && data.highRiskCount >= 0 && data.highRiskCount <= 10000
+        && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 4000
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 40000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().keys().hasOnly(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && resource != null
+        && isValidUserProfile(incoming(), userId)
+        && isOwner(userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /userPreferences/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserPreferences(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && userProfileExists(request.auth.uid);
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && resource != null
+        && isValidUserPreferences(incoming(), userId)
+        && isOwner(userId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'sensitivity',
+          'autoExplainWithAi',
+          'defaultReportFormat',
+          'updatedAt'
+        ]);
+      allow delete: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+    }
+
+    match /scans/{scanId} {
+      allow get: if isValidId(scanId) && isSignedIn() && resource != null && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(scanId)
+        && isValidScanRecord(incoming(), scanId)
+        && (incoming().scanType in ['url', 'qr'] || incoming().rawInput.matches('(?s)^\\[REDACTED_(EMAIL|SMS)_META\\].*'))
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && userProfileExists(request.auth.uid);
+      allow update: if isVerifiedUser()
+        && isValidId(scanId)
+        && resource != null
+        && isValidScanRecord(incoming(), scanId)
+        && existing().userId == request.auth.uid
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().scanType == existing().scanType
+        && incoming().rawInput == existing().rawInput
+        && incoming().targetPreview == existing().targetPreview
+        && incoming().isDemoMode == existing().isDemoMode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['archived', 'analystNote', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly([
+            'riskLevel',
+            'riskScore',
+            'heuristicScore',
+            'submittedUrl',
+            'reputationStatus',
+            'reputationResult',
+            'reputationProvider',
+            'reputationCheckedAt',
+            'threatCategories',
+            'reputationSummary',
+            'scoreBreakdownSummary',
+            'mlProbability',
+            'mlSummary',
+            'verdictSummary',
+            'indicators',
+            'recommendations',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser() && isValidId(scanId) && resource != null && existing().userId == request.auth.uid;
+    }
+
+    match /reports/{reportId} {
+      allow get: if isValidId(reportId) && isSignedIn() && resource != null && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(reportId)
+        && isValidSecurityReport(incoming(), reportId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && userProfileExists(request.auth.uid);
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(reportId) && resource != null && existing().userId == request.auth.uid;
+    }
+  }
+}

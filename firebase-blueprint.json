@@ -1,0 +1,357 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Minimal authenticated user account reference stored for owner-only Firestore referential integrity without redundant PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID matching the document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "User display label."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254,
+          "description": "Legacy optional field (no longer written by the client for data minimization)."
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Legacy optional field (no longer written by the client for data minimization)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when profile was last updated."
+        }
+      },
+      "required": ["uid", "displayName", "createdAt", "updatedAt"]
+    },
+    "UserPreferences": {
+      "title": "UserPreferences",
+      "description": "Per-user scanner sensitivity, AI explanation, and report export preferences.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner UID matching document ID."
+        },
+        "sensitivity": {
+          "type": "string",
+          "enum": ["standard", "strict", "paranoid"],
+          "description": "Heuristic detection sensitivity threshold."
+        },
+        "autoExplainWithAi": {
+          "type": "boolean",
+          "description": "Automatically invoke Gemini server-side explanation on scans."
+        },
+        "defaultReportFormat": {
+          "type": "string",
+          "enum": ["pdf", "json", "markdown"],
+          "description": "Preferred format when generating downloadable browser reports."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "userId",
+        "sensitivity",
+        "autoExplainWithAi",
+        "defaultReportFormat",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ScanRecord": {
+      "title": "ScanRecord",
+      "description": "Stored phishing or scam scan record owned by a specific authenticated user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique scan identifier matching document ID."
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "scanType": {
+          "type": "string",
+          "enum": ["url", "email", "sms", "qr"],
+          "description": "Scanner channel used."
+        },
+        "targetPreview": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Minimized preview of the scanned URL, redacted message domain tag, or sanitized QR payload."
+        },
+        "rawInput": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000,
+          "description": "Minimized and secret-redacted input metadata (original SMS/email contents, QR image bytes, and passwords are never stored)."
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": [
+            "Known Malicious",
+            "High Risk",
+            "Suspicious",
+            "No Known Threat Found",
+            "Unknown/Unverified"
+          ],
+          "description": "Risk classification. Unknown URLs are never marked Safe."
+        },
+        "riskScore": {
+          "type": "integer",
+          "description": "Normalized risk score from 0 to 100."
+        },
+        "heuristicScore": {
+          "type": "integer",
+          "description": "Deterministic weighted heuristic risk score from 0 to 100."
+        },
+        "submittedUrl": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Submitted or primary inspected URL sent to threat reputation checking."
+        },
+        "reputationStatus": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Normalized threat reputation status key."
+        },
+        "reputationResult": {
+          "type": "string",
+          "enum": ["Known Malicious", "No Known Threat Found", "Unknown / Unverified"],
+          "description": "Official threat reputation result label."
+        },
+        "reputationProvider": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Official threat intelligence provider queried server-side."
+        },
+        "reputationCheckedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "ISO timestamp when threat reputation lookup completed."
+        },
+        "threatCategories": {
+          "type": "array",
+          "description": "Bounded list of threat categories returned by the reputation provider (max 10)."
+        },
+        "reputationSummary": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Summary of the separate threat reputation provider check."
+        },
+        "scoreBreakdownSummary": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Serialized deterministic score breakdown weights and evidence."
+        },
+        "mlProbability": {
+          "type": "integer",
+          "description": "Independent local lexical ML phishing probability from 0 to 100."
+        },
+        "mlSummary": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Concise summary from the separate local ML lexical predictor."
+        },
+        "verdictSummary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Concise finding summary."
+        },
+        "aiExplanation": {
+          "type": "string",
+          "maxLength": 8000,
+          "description": "Gemini server-side security explanation."
+        },
+        "indicators": {
+          "type": "array",
+          "description": "Bounded list of detected threat or structural indicators (max 20)."
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "Bounded list of defensive actions (max 15)."
+        },
+        "isDemoMode": {
+          "type": "boolean",
+          "description": "Indicates analysis came from the demo heuristic + AI sandbox."
+        },
+        "archived": {
+          "type": "boolean",
+          "description": "Whether the user archived this scan."
+        },
+        "analystNote": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Optional user-editable security note."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "scanType",
+        "targetPreview",
+        "rawInput",
+        "riskLevel",
+        "riskScore",
+        "verdictSummary",
+        "aiExplanation",
+        "indicators",
+        "recommendations",
+        "isDemoMode",
+        "archived",
+        "analystNote",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SecurityReport": {
+      "title": "SecurityReport",
+      "description": "Exported threat summary report metadata and rendered text stored in Cloud Firestore for browser download (PDF, JSON, Markdown).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Report identifier matching document ID."
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Report title."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["pdf", "json", "markdown"],
+          "description": "Export file format generated in browser."
+        },
+        "scanCount": {
+          "type": "integer",
+          "description": "Number of scans included in this report."
+        },
+        "highRiskCount": {
+          "type": "integer",
+          "description": "Number of Critical/High Risk scans included."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "description": "Executive summary of findings."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40000,
+          "description": "Rendered report text or JSON content for browser export."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "format",
+        "scanCount",
+        "highRiskCount",
+        "summary",
+        "content",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Owner-only minimal user reference documents (UID and display label; redundant PII omitted)."
+    },
+    "/userPreferences/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserPreferences"
+      },
+      "description": "Per-user scanner and export preferences."
+    },
+    "/scans/{scanId}": {
+      "schema": {
+        "$ref": "#/entities/ScanRecord"
+      },
+      "description": "Per-user scan history records across URL, Email, SMS, and QR scanners."
+    },
+    "/reports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/SecurityReport"
+      },
+      "description": "User-generated report metadata and export text."
+    }
+  }
+}

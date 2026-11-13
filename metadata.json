@@ -1,0 +1,6 @@
+{
+  "name": "PhishShield AI",
+  "description": "AI-powered phishing, scam, and QR threat detection dashboard with Firebase Authentication, Cloud Firestore, and server-side Gemini security explanations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
